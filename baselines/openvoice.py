@@ -7,7 +7,7 @@ from openvoice import se_extractor
 from openvoice.api import ToneColorConverter
 
 ckpt_converter = '../OpenVoice/checkpoints_v2/converter'
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
+device = "cuda:0" if torch.cuda.is_available() else "mps"
 
 tone_color_converter = ToneColorConverter(f'{ckpt_converter}/config.json', device=device)
 tone_color_converter.load_ckpt(f'{ckpt_converter}/checkpoint.pth')

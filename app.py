@@ -9,7 +9,14 @@ import numpy as np
 from pydub import AudioSegment
 
 # Load model and configuration
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def setup_mps_device():
+    if not torch.backends.mps.is_available():
+        return torch.device("cpu")
+    if not torch.backends.mps.is_built():
+        return torch.device("cpu")
+    return torch.device("mps")
+
+device = setup_mps_device()
 
 dit_checkpoint_path, dit_config_path = load_custom_model_from_hf("Plachta/Seed-VC",
                                                 "DiT_seed_v2_uvit_whisper_small_wavenet_bigvgan_pruned.pth",
@@ -112,7 +119,7 @@ bigvgan_44k_model.remove_weight_norm()
 bigvgan_44k_model = bigvgan_44k_model.eval().to(device)
 
 def adjust_f0_semitones(f0_sequence, n_semitones):
-    factor = 2 ** (n_semitones / 12)
+    factor = torch.tensor(2.0, dtype=f0_sequence.dtype, device=f0_sequence.device) ** (n_semitones / 12.0)
     return f0_sequence * factor
 
 def crossfade(chunk1, chunk2, overlap):
@@ -139,12 +146,12 @@ def voice_conversion(source, target, diffusion_steps, length_adjust, inference_c
     max_context_window = sr // hop_length * 30
     overlap_wave_len = overlap_frame_len * hop_length
     # Load audio
-    source_audio = librosa.load(source, sr=sr)[0]
-    ref_audio = librosa.load(target, sr=sr)[0]
+    source_audio = librosa.load(source, sr=sr)[0].astype(np.float32)
+    ref_audio = librosa.load(target, sr=sr)[0].astype(np.float32)
 
     # Process audio
-    source_audio = torch.tensor(source_audio).unsqueeze(0).float().to(device)
-    ref_audio = torch.tensor(ref_audio[:sr * 25]).unsqueeze(0).float().to(device)
+    source_audio = torch.tensor(source_audio, dtype=torch.float32).unsqueeze(0).to(device)
+    ref_audio = torch.tensor(ref_audio[:sr * 25], dtype=torch.float32).unsqueeze(0).to(device)
 
     # Resample
     ref_waves_16k = torchaudio.functional.resample(ref_audio, sr, 16000)
@@ -230,28 +237,35 @@ def voice_conversion(source, target, diffusion_steps, length_adjust, inference_c
     style2 = campplus_model(feat2.unsqueeze(0))
 
     if f0_condition:
-        F0_ori = rmvpe.infer_from_audio(ref_waves_16k[0], thred=0.03)
-        F0_alt = rmvpe.infer_from_audio(converted_waves_16k[0], thred=0.03)
+        # Extract F0 and ensure float32
+        F0_ori = rmvpe.infer_from_audio(ref_waves_16k[0].cpu().numpy().astype(np.float32), thred=0.03)
+        F0_alt = rmvpe.infer_from_audio(converted_waves_16k[0].cpu().numpy().astype(np.float32), thred=0.03)
+        F0_ori = torch.from_numpy(F0_ori).float().to(device).unsqueeze(0)
+        F0_alt = torch.from_numpy(F0_alt).float().to(device).unsqueeze(0)
 
-        F0_ori = torch.from_numpy(F0_ori).to(device)[None]
-        F0_alt = torch.from_numpy(F0_alt).to(device)[None]
+        # Define float32 constants
+        threshold = torch.tensor(1.0, dtype=torch.float32, device=device)
+        epsilon = torch.tensor(1e-5, dtype=torch.float32, device=device)
 
-        voiced_F0_ori = F0_ori[F0_ori > 1]
-        voiced_F0_alt = F0_alt[F0_alt > 1]
+        # F0 operations
+        voiced_F0_ori = F0_ori[F0_ori > threshold]
+        voiced_F0_alt = F0_alt[F0_alt > threshold]
+        log_f0_alt = torch.log(F0_alt + epsilon)
+        voiced_log_f0_ori = torch.log(voiced_F0_ori + epsilon)
+        voiced_log_f0_alt = torch.log(voiced_F0_alt + epsilon)
 
-        log_f0_alt = torch.log(F0_alt + 1e-5)
-        voiced_log_f0_ori = torch.log(voiced_F0_ori + 1e-5)
-        voiced_log_f0_alt = torch.log(voiced_F0_alt + 1e-5)
         median_log_f0_ori = torch.median(voiced_log_f0_ori)
         median_log_f0_alt = torch.median(voiced_log_f0_alt)
-
-        # shift alt log f0 level to ori log f0 level
         shifted_log_f0_alt = log_f0_alt.clone()
+
         if auto_f0_adjust:
-            shifted_log_f0_alt[F0_alt > 1] = log_f0_alt[F0_alt > 1] - median_log_f0_alt + median_log_f0_ori
+            mask = F0_alt > threshold
+            shifted_log_f0_alt[mask] = log_f0_alt[mask] - median_log_f0_alt + median_log_f0_ori
         shifted_f0_alt = torch.exp(shifted_log_f0_alt)
+
         if pitch_shift != 0:
-            shifted_f0_alt[F0_alt > 1] = adjust_f0_semitones(shifted_f0_alt[F0_alt > 1], pitch_shift)
+            mask = F0_alt > threshold
+            shifted_f0_alt[mask] = adjust_f0_semitones(shifted_f0_alt[mask], pitch_shift)
     else:
         F0_ori = None
         F0_alt = None
@@ -270,14 +284,31 @@ def voice_conversion(source, target, diffusion_steps, length_adjust, inference_c
         chunk_cond = cond[:, processed_frames:processed_frames + max_source_window]
         is_last_chunk = processed_frames + max_source_window >= cond.size(1)
         cat_condition = torch.cat([prompt_condition, chunk_cond], dim=1)
-        with torch.autocast(device_type=device.type, dtype=torch.float16):
-            # Voice Conversion
-            vc_target = inference_module.cfm.inference(cat_condition,
-                                                       torch.LongTensor([cat_condition.size(1)]).to(mel2.device),
-                                                       mel2, style2, None, diffusion_steps,
-                                                       inference_cfg_rate=inference_cfg_rate)
-            vc_target = vc_target[:, :, mel2.size(-1):]
-        vc_wave = bigvgan_fn(vc_target.float())[0]
+        if device.type != 'mps':
+            with torch.autocast(device_type=device.type, dtype=torch.float16):
+                vc_target = inference_module.cfm.inference(
+                    cat_condition,
+                    torch.LongTensor([cat_condition.size(1)]).to(device),
+                    mel2,
+                    style2,
+                    None,  # f0 parameter
+                    diffusion_steps,
+                    temperature=1.0,
+                    inference_cfg_rate=inference_cfg_rate
+                )
+        else:
+            vc_target = inference_module.cfm.inference(
+                cat_condition,
+                torch.LongTensor([cat_condition.size(1)]).to(device),
+                mel2,
+                style2,
+                None,  # f0 parameter
+                diffusion_steps,
+                temperature=1.0,
+                inference_cfg_rate=inference_cfg_rate
+            )
+        vc_target = vc_target[:, :, mel2.size(-1):]
+        vc_wave = bigvgan_fn(vc_target)[0]
         if processed_frames == 0:
             if is_last_chunk:
                 output_wave = vc_wave[0].cpu().numpy()

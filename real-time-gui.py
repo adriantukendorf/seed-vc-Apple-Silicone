@@ -1141,5 +1141,5 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", type=int, help="Which GPU id to use", default=0)
     args = parser.parse_args()
     cuda_target = f"cuda:{args.gpu}" if args.gpu else "cuda" 
-    device = torch.device(cuda_target if torch.cuda.is_available() else "cpu")
+    device = torch.device(cuda_target if torch.cuda.is_available() else "mps")
     gui = GUI(args)

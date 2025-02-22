@@ -25,7 +25,7 @@ from hf_utils import load_custom_model_from_hf
 
 
 # Load model and configuration
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("mps")
 fp16 = False
 def load_models(args):
     global fp16
@@ -315,15 +315,16 @@ def main(args):
         F0_ori = f0_fn(ori_waves_16k[0], thred=0.03)
         F0_alt = f0_fn(converted_waves_16k[0], thred=0.03)
 
-        F0_ori = torch.from_numpy(F0_ori).to(device)[None]
-        F0_alt = torch.from_numpy(F0_alt).to(device)[None]
+        F0_ori = torch.from_np(F0_ori).float().to(device).unsqueeze(0)
+        F0_alt = torch.from_np(F0_alt).float().to(device).unsqueeze(0)
 
         voiced_F0_ori = F0_ori[F0_ori > 1]
         voiced_F0_alt = F0_alt[F0_alt > 1]
 
-        log_f0_alt = torch.log(F0_alt + 1e-5)
-        voiced_log_f0_ori = torch.log(voiced_F0_ori + 1e-5)
-        voiced_log_f0_alt = torch.log(voiced_F0_alt + 1e-5)
+        log_f0_alt = torch.log(F0_alt + torch.tensor(1e-5, device=F0_alt.device, dtype=F0_alt.dtype))
+        voiced_log_f0_ori = torch.log(voiced_F0_ori + torch.tensor(1e-5, device=voiced_F0_ori.device, dtype=voiced_F0_ori.dtype))
+
+        voiced_log_f0_alt = torch.log(voiced_F0_alt + torch.tensor(1e-5, device=voiced_F0_alt.device, dtype=voiced_F0_alt.dtype))
         median_log_f0_ori = torch.median(voiced_log_f0_ori)
         median_log_f0_alt = torch.median(voiced_log_f0_alt)
 

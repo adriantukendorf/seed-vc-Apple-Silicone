@@ -11,7 +11,7 @@ import torchaudio
 # from modelscope import snapshot_download
 # snapshot_download('iic/CosyVoice-300M-25Hz', local_dir='pretrained_models/CosyVoice-300M-25Hz')
 cosyvoice = CosyVoice('pretrained_models/CosyVoice-300M-25Hz')
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
+device = "cuda:0" if torch.cuda.is_available() else "mps"
 
 @torch.no_grad()
 def convert(source_path, reference_path, output_path):
