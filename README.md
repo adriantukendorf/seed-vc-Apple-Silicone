@@ -1,9 +1,4 @@
-# Seed-VC  
-[![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Demo-blue)](https://huggingface.co/spaces/Plachta/Seed-VC)  [![arXiv](https://img.shields.io/badge/arXiv-2411.09943-<COLOR>.svg)](https://arxiv.org/abs/2411.09943)
-
-*English | [简体中文](README-ZH.md) | [日本語](README-JA.md)*  
-
-[real-time-demo.webm](https://github.com/user-attachments/assets/86325c5e-f7f6-4a04-8695-97275a5d046c)
+# Seed-VC ONLY Apple Silicone (M1/M2/M3/M4) 
 
 Currently released model supports *zero-shot voice conversion* 🔊 , *zero-shot real-time voice conversion* 🗣️ and *zero-shot singing voice conversion* 🎶. Without any training, it is able to clone a voice given a reference speech of 1~30 seconds.  
 
@@ -11,16 +6,22 @@ We support further fine-tuning on custom data to increase performance on specifi
 
 **Real-time voice conversion** is support, with algorithm delay of ~300ms and device side delay of ~100ms, suitable for online meetings, gaming and live streaming.
 
-To find a list of demos and comparisons with previous voice conversion models, please visit our [demo page](https://plachtaa.github.io/seed-vc/)🌐  and [Evaluaiton](EVAL.md)📊.
+## Installation 📥  - - -  This forks support Apple Silicone exclusively 
+Suggested python 3.10
+```bash
+git clone https://github.com/Plachtaa/seed-vc-apple-silicone
+```
 
-We are keeping on improving the model quality and adding more features.
+```bash
+cd seed-vc-apple-silicone
+```
 
-## Evaluation📊
-See [EVAL.md](EVAL.md) for objective evaluation results and comparisons with other baselines.
-## Installation📥
-Suggested python 3.10 on Windows or Linux.
 ```bash
 pip install -r requirements.txt
+```
+
+```bash
+python app_svc.py
 ```
 
 ## Usage🛠️
@@ -93,20 +94,6 @@ python real-time-gui.py --checkpoint <path-to-checkpoint> --config <path-to-conf
 - `checkpoint` is the path to the model checkpoint if you have trained or fine-tuned your own model, leave to blank to auto-download default model from huggingface. (`seed-uvit-tat-xlsr-tiny`)
 - `config` is the path to the model config if you have trained or fine-tuned your own model, leave to blank to auto-download default config from huggingface  
 
-IMPORTANT: It is strongly recommended to use a GPU for real-time voice conversion.  
-Some performance testing has been done on a NVIDIA RTX 3060 Laptop GPU, results and recommended parameter settings are listed below:
-
-| Model Configuration             | Diffusion Steps | Inference CFG Rate | Max Prompt Length | Block Time (s) | Crossfade Length (s) | Extra context (left) (s) | Extra context (right) (s) | Latency (ms) | Inference Time per Chunk (ms) |
-|---------------------------------|-----------------|--------------------|-------------------|----------------|----------------------|--------------------------|---------------------------|--------------|-------------------------------| 
-| seed-uvit-xlsr-tiny             | 10              | 0.7                | 3.0               | 0.18s          | 0.04s                | 2.5s                     | 0.02s                     | 430ms        | 150ms                         |
-
-You can adjust the parameters in the GUI according to your own device performance, the voice conversion stream should work well as long as Inference Time is less than Block Time.  
-Note that inference speed may drop if you are running other GPU intensive tasks (e.g. gaming, watching videos)  
-
-You may wish to use [VB-CABLE](https://vb-audio.com/Cable/) to route audio from GUI output stream to a virtual microphone.  
-
-*(GUI and audio chunking logic are modified from [RVC](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI), thanks for their brilliant implementation!)*
-
 ## Training🏋️
 Fine-tuning on custom data allow the model to clone someone's voice more accurately. It will largely improve speaker similarity on particular speakers, but may slightly increase WER.  
 A Colab Tutorial is here for you to follow: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1R1BJTqMsTXZzYAVx3j1BiemFXog9pbQG?usp=sharing)
@@ -150,56 +137,3 @@ where:
     - They should be under `./runs/<run-name>/`, with the checkpoint named `ft_model.pth` and config file with the same name as the training config file.
     - You still have to specify a reference audio file of the speaker you'd like to use during inference, similar to zero-shot usage.
 
-## TODO📝
-- [x] Release code
-- [x] Release pretrained models: [![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-SeedVC-blue)](https://huggingface.co/Plachta/Seed-VC)
-- [x] Huggingface space demo: [![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-blue)](https://huggingface.co/spaces/Plachta/Seed-VC)
-- [x] HTML demo page: [Demo](https://plachtaa.github.io/seed-vc/)
-- [x] Streaming inference
-- [x] Reduce streaming inference latency
-- [x] Demo video for real-time voice conversion
-- [x] Singing voice conversion
-- [x] Noise resiliency for source audio
-- [ ] Potential architecture improvements
-    - [x] U-ViT style skip connections
-    - [x] Changed input to OpenAI Whisper
-    - [x] Time as Token
-- [x] Code for training on custom data
-- [x] Few-shot/One-shot speaker fine-tuning
-- [x] Changed to BigVGAN from NVIDIA for singing voice decoding
-- [x] Whisper version model for singing voice conversion
-- [x] Objective evaluation and comparison with RVC/SoVITS for singing voice conversion
-- [x] Improve audio quality
-- [ ] NSF vocoder for better singing voice conversion
-- [x] Fix real-time voice conversion artifact while not talking (done by adding a VAD model)
-- [x] Colab Notebook for fine-tuning example
-- [ ] Replace whisper with more advanced linguistic content extractor
-- [ ] More to be added
-
-## CHANGELOGS🗒️
-- 2024-11-26:
-    - Updated v1.0 tiny version pretrained model, optimized for real-time voice conversion
-    - Support one-shot/few-shot single/multi speaker fine-tuning
-    - Support using custom checkpoint for webUI & real-time GUI
-- 2024-11-19:
-    - arXiv paper released
-- 2024-10-28:
-    - Updated fine-tuned 44k singing voice conversion model with better audio quality
-- 2024-10-27:
-    - Added real-time voice conversion GUI
-- 2024-10-25:
-    - Added exhaustive evaluation results and comparisons with RVCv2 for singing voice conversion
-- 2024-10-24:
-    - Updated 44kHz singing voice conversion model, with OpenAI Whisper as speech content input
-- 2024-10-07:
-    - Updated v0.3 pretrained model, changed speech content encoder to OpenAI Whisper
-    - Added objective evaluation results for v0.3 pretrained model
-- 2024-09-22:
-    - Updated singing voice conversion model to use BigVGAN from NVIDIA, providing large improvement to high-pitched singing voices
-    - Support chunking and  streaming output for long audio files in Web UI
-- 2024-09-18:
-    - Updated f0 conditioned model for singing voice conversion
-- 2024-09-14:
-    - Updated v0.2 pretrained model, with smaller size and less diffusion steps to achieve same quality, and additional ability to control prosody preservation
-    - Added command line inference script
-    - Added installation and usage instructions
