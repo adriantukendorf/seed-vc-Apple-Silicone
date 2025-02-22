@@ -1,4 +1,4 @@
-# Seed-VC ONLY Apple Silicone (M1/M2/M3/M4) 
+# Seed-VC ONLY Apple Silicon (M1/M2/M3/M4) 
 
 Currently released model supports *zero-shot voice conversion* 🔊 , *zero-shot real-time voice conversion* 🗣️ and *zero-shot singing voice conversion* 🎶. Without any training, it is able to clone a voice given a reference speech of 1~30 seconds.  
 
@@ -6,7 +6,7 @@ We support further fine-tuning on custom data to increase performance on specifi
 
 **Real-time voice conversion** is support, with algorithm delay of ~300ms and device side delay of ~100ms, suitable for online meetings, gaming and live streaming.
 
-## Installation 📥  - - -  This forks support Apple Silicone exclusively 
+## Installation 📥  - - -  This forks support Apple Silicon exclusively 
 Suggested python 3.10
 ```bash
 git clone https://github.com/Plachtaa/seed-vc-apple-silicone
@@ -23,6 +23,7 @@ pip install -r requirements.txt
 ```bash
 python app_svc.py
 ```
+lol sorry for the typo in the repo name
 
 ## Usage🛠️
 We have released 3 models for different purposes:
